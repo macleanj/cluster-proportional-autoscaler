@@ -1,0 +1,225 @@
+###################################################################################
+# Generic
+###################################################################################
+# serviceAccount used for controlling the scaling.
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+# priorityClass determined the eviction order. priorityClass -10 to -1 will be evicted over the default (in this example 0). priorityClass < -10 will not be taken into account at all.
+priorityClass:
+  default:
+    create: true
+    name: default
+    value: 0
+  placeholder:
+    value: -1
+
+# nodeTypes: configuration array to tailor the proportional scaling and resource management per individual node type.
+# The types are defined by labels and taints and will have all their own scalling needs.
+# - resources: overprovisioning resources aclaimed by the placeholder.
+# - nodeLabels: comma-separated list of labels setting the SCOPE of the cluster-proportional-autoscaler. This scope is used to calculated the total amount of resources over (used for the control mode).
+#   Mind: nodeLabels, nodeSelector, tolerations, tolerationsByKey (custom notation), affinity should all match the same group.
+nodeTypes:
+# - name: system
+#   enabled: false
+#   controlMode: "default"
+#   nodeLabels: "kubernetes-role=system"
+#   tolerations:
+#   - effect: NoSchedule
+#     operator: Exists
+#   - key: CriticalAddonsOnly
+#     operator: Exists
+#   - effect: NoExecute
+#     operator: Exists
+#   affinity:
+#     nodeAffinity:
+#       requiredDuringSchedulingIgnoredDuringExecution:
+#         nodeSelectorTerms:
+#         - matchExpressions:
+#           - key: kubernetes-role
+#             operator: In
+#             values:
+#             - system
+#   resources:
+#     limits:
+#       cpu: 2000m
+#       memory: 2000Mi
+#     requests:
+#       cpu: 2000m
+#       memory: 2000Mi
+# - name: infra
+#   enabled: false
+#   controlMode: "default"
+#   nodeLabels: "kubernetes-role=infra"
+#   nodeSelector:
+#     kubernetes-role: infra
+#   tolerationsByKey:
+#     key: infra
+#   resources:
+#     limits:
+#       cpu: 2000m
+#       memory: 2000Mi
+#     requests:
+#       cpu: 2000m
+#       memory: 2000Mi
+# Generic type should have matching label(s), however most likely does not have a taint. Toleration mentioned for completetenss.
+- name: generic
+  enabled: true
+  controlMode: "default"
+  nodeLabels: "kubernetes-role=generic"
+  nodeSelector:
+    kubernetes-role: generic
+  tolerationsByKey:
+    key: generic
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 2000Mi
+    requests:
+      cpu: 2000m
+      memory: 2000Mi
+
+# controlMode: configmap for the cluster-proportional-autoscaler
+# https://github.com/kubernetes-sigs/cluster-proportional-autoscaler#control-patterns-and-configmap-formats
+controlMode:
+  - name: default
+    mode:
+      ladder: |-
+        {
+          "coresToReplicas":
+          [
+            [ 1, 1 ],
+            [ 64, 3 ],
+            [ 512, 5 ],
+            [ 1024, 7 ],
+            [ 2048, 10 ],
+            [ 4096, 15 ]
+          ],
+          "nodesToReplicas":
+          [
+            [ 1, 1 ],
+            [ 2, 2 ]
+          ]
+        }
+  # - name: option1
+  #   mode:
+  #     linear: |-
+  #       {
+  #         "coresPerReplica": 2,
+  #         "nodesPerReplica": 1,
+  #         "min": 1,
+  #         "max": 100,
+  #         "preventSinglePointFailure": true,
+  #         "includeUnschedulableNodes": true
+  #       }
+  # - name: option2
+  #   mode:
+  #     linear: |-
+  #       {
+  #         "coresPerReplica": 10,
+  #         "nodesPerReplica": 1,
+  #         "min": 1,
+  #         "max": 100,
+  #         "preventSinglePointFailure": true
+  #       }
+
+###################################################################################
+# Autoscaler
+###################################################################################
+replicaCount: 1
+
+image:
+  repository: gcr.io/google_containers/cluster-proportional-autoscaler-amd64
+  tag: 1.8.1
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+resources:
+  limits:
+    cpu: 5m
+    memory: 20Mi
+  requests:
+    cpu: 1m
+    memory: 10Mi
+
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#
+  # Taken from nodeTypes
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#
+  # resources:
+  #   limits:
+  #     cpu: 3000m
+  #     memory: 3000Mi
+  #   requests:
+  #     cpu: 2000m
+  #     memory: 2000Mi
+
+  # nodeSelector: {}
+
+  # tolerations: []
+
+  # affinity: {}
+
+###################################################################################
+# Placeholder / overprovisioner
+###################################################################################
+placeholderDeployment:
+  image:
+    repository: k8s.gcr.io/pause
+    tag: 3.2
+    pullPolicy: IfNotPresent
+
+  imagePullSecrets: []
+  nameOverride: ""
+  fullnameOverride: ""
+
+  podAnnotations: {}
+
+  podSecurityContext: {}
+    # fsGroup: 2000
+
+  securityContext: {}
+    # capabilities:
+    #   drop:
+    #   - ALL
+    # readOnlyRootFilesystem: true
+    # runAsNonRoot: true
+    # runAsUser: 1000
+
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#
+  # Taken from nodeTypes
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#
+  # resources:
+  #   limits:
+  #     cpu: 3000m
+  #     memory: 3000Mi
+  #   requests:
+  #     cpu: 2000m
+  #     memory: 2000Mi
+
+  # nodeSelector: {}
+
+  # tolerations: []
+
+  # affinity: {}

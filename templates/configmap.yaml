@@ -1,0 +1,9 @@
+{{ range .Values.controlMode }}
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: {{ printf "%s-%s" (include "common.fullname" $) .name | trunc 63 | trimSuffix "-" }}
+data:
+  {{- toYaml .mode | nindent 2 }}
+---
+{{- end }}

@@ -1,0 +1,21 @@
+{{- if .Values.priorityClass.default.create }}
+apiVersion: {{ template "common.priorityClass.apiVersion" . }}
+kind: PriorityClass
+metadata:
+  name: {{ printf "%s-%s" (include "common.fullname" .) .Values.priorityClass.default.name | trunc 63 | trimSuffix "-" }}
+  labels:
+    {{- include "common.labels" . | nindent 4 }}
+value: {{ .Values.priorityClass.default.value }}
+globalDefault: true
+description: "Default priority class for pods"
+{{- end }}
+---
+apiVersion: {{ template "common.priorityClass.apiVersion" . }}
+kind: PriorityClass
+metadata:
+  name: {{ include "common.fullname" . }}
+  labels:
+    {{- include "common.labels" . | nindent 4 }}
+value: {{ .Values.priorityClass.placeholder.value }}
+globalDefault: false
+description: "Priority class used for placeholder pods"

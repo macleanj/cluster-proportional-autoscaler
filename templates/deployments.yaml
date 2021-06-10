@@ -1,0 +1,143 @@
+{{/*
+###################################################################################
+# Autoscaler
+###################################################################################
+*/}}
+{{ range .Values.nodeTypes }}
+{{- if .enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ printf "%s-%s" (include "common.fullname" $) .name | trunc 63 | trimSuffix "-" }}
+  labels:
+    app: {{ printf "%s-%s" (include "common.fullname" $) .name | trunc 63 | trimSuffix "-" }}
+    {{- include "common.labels" $ | nindent 4 }}
+spec:
+  replicas: {{ $.Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ printf "%s-%s" (include "common.fullname" $) .name | trunc 63 | trimSuffix "-" }}
+      {{- include "common.selectorLabels" $ | nindent 6 }}
+  template:
+    metadata:
+      {{- with $.Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        app: {{ printf "%s-%s" (include "common.fullname" $) .name | trunc 63 | trimSuffix "-" }}
+        {{- include "common.selectorLabels" $ | nindent 8 }}
+    spec:
+      {{- with $.Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "common.serviceAccountName" $ }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ include "common.name" $ }}
+          securityContext:
+            {{- toYaml $.Values.securityContext | nindent 12 }}
+          image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag | default $.Chart.AppVersion }}"
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          resources:
+            {{- toYaml $.Values.resources | nindent 12 }}
+          command:
+            - /cluster-proportional-autoscaler
+            - --namespace={{- $.Release.Namespace }}
+            - --configmap={{- printf "%s-%s" (include "common.fullname" $) .controlMode | trunc 63 | trimSuffix "-" }}
+            - --target={{- printf "deployment/%s-%s-%s" (include "common.fullname" $) .name "pause" | trunc 63 | trimSuffix "-" }}
+            - --nodelabels={{- .nodeLabels }}
+            - --logtostderr=true
+            - --v=2
+      {{- with .nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .tolerationsByKey }}
+      tolerations:
+      - key: {{ .key | quote }}
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      {{- end }}
+---
+{{- end }}
+{{- end }}
+---
+{{/*
+###################################################################################
+# Placeholder / overprovisioner
+###################################################################################
+*/}}
+{{ range .Values.nodeTypes }}
+{{- if .enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ printf "%s-%s-%s" (include "common.fullname" $) .name "pause" | trunc 63 | trimSuffix "-" }}
+  labels:
+    app: {{ printf "%s-%s-%s" (include "common.fullname" $) .name "pause" | trunc 63 | trimSuffix "-" }}
+    {{- include "common.labels" $ | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ printf "%s-%s-%s" (include "common.fullname" $) .name "pause" | trunc 63 | trimSuffix "-" }}
+      {{- include "common.selectorLabels" $ | nindent 6 }}
+  template:
+    metadata:
+      {{- with $.Values.placeholderDeployment.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        app: {{ printf "%s-%s-%s" (include "common.fullname" $) .name "pause" | trunc 63 | trimSuffix "-" }}
+        {{- include "common.selectorLabels" $ | nindent 8 }}
+    spec:
+      {{- with $.Values.placeholderDeployment.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "common.serviceAccountName" $ }}
+      securityContext:
+        {{- toYaml $.Values.placeholderDeployment.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ include "common.name" $ }}
+          securityContext:
+            {{- toYaml $.Values.placeholderDeployment.securityContext | nindent 12 }}
+          image: "{{ $.Values.placeholderDeployment.image.repository }}:{{ $.Values.placeholderDeployment.image.tag | default $.Chart.AppVersion }}"
+          imagePullPolicy: {{ $.Values.placeholderDeployment.image.pullPolicy }}
+          resources:
+            {{- toYaml $.Values.placeholderDeployment.resources | nindent 12 }}
+      {{- with .nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .tolerationsByKey }}
+      tolerations:
+      - key: {{ .key | quote }}
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      {{- end }}
+---
+{{- end }}
+{{- end }}
+---
